@@ -1,13 +1,13 @@
 {
   "name": "dhcpd",
-  "version": "0.9.7",
+  "version": "3.1.3",
   "author": "Zack YL Shih",
   "email": "zackyl.shih@moxa.com",
-  "description": "DHCP Server configuration.",
+  "description": "Handles the DHCP Server configuration",
   "license": "MOXA",
   "main": "index.py",
   "argument": "",
-  "priority": 99,
+  "priority": 18,
   "hook": [],
   "dependencies": {},
   "repository": "",
@@ -16,7 +16,7 @@
   "resources": [
     {
       "role": "view",
-      "resource": "/network/interface"
+      "resource": "/network/interfaces/:ifname"
     },
     {
       "methods": "get",

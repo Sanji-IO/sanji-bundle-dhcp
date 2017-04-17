@@ -7,7 +7,10 @@ import os
 from sanji.core import Sanji
 from sanji.core import Route
 from sanji.connection.mqtt import Mqtt
+from voluptuous import Schema, REMOVE_EXTRA, Required, Optional, In
 from dhcpd import DHCPD
+
+from traceback import format_exc
 
 
 class Index(Sanji):
@@ -22,7 +25,7 @@ class Index(Sanji):
     def get(self, message, response):
         status = self.dhcpd.service.status()
         return response(data={
-            "status": 1 if status == 0 else 0,
+            "status": True if status == 0 else False,
             "collection": self.dhcpd.getAll()
         })
 
@@ -42,23 +45,26 @@ class Index(Sanji):
             return response(code=404)
         return response(data=data)
 
-    @Route(methods="put", resource="/network/interface")
+    IFACE_INFO = Schema(
+        {
+            Optional("wan"): bool,
+            Required("type"):
+                In(frozenset(["eth", "wifi-ap", "wifi-client", "cellular"])),
+            Required("mode"): In(frozenset(["static", "dhcp"]))
+        },
+        extra=REMOVE_EXTRA)
+
+    @Route(methods="put", resource="/network/interfaces/:ifname")
     def _event_interface_info(self, message):
-        if "name" not in message.data:
-            self._logger.debug("event: /network/interface has no key: name.")
+        info = message.data
+        try:
+            info = self.IFACE_INFO(info)
+        except:
+            self._logger.warning(format_exc())
             return
 
-        name = message.data["name"]
-        deps = [iface for iface in self.dhcpd.getAll() if
-                iface["enable"] == 1 and iface["name"] == name]
-
-        if len(deps) == 0:
-            return
-
-        self.dhcpd.gererate_config()
-        self._logger.info(
-            "DHCP server is restarted. Due to %s setting had been chanaged" %
-            message.data["name"])
+        info["name"] = message.param["ifname"]
+        self.dhcpd.update_iface_info(info)
 
 
 if __name__ == "__main__":
