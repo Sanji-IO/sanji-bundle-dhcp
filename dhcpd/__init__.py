@@ -30,19 +30,39 @@ def get_ip_by_interface(iface):
 
 class Service(object):
     _logger = logging.getLogger("sanji.dhcpd.service")
+    _commands = ["start", "restart", "stop", "status", "daemon_reload", "is_installed"]
 
     def __init__(self, service_name):
         self.service_name = service_name
 
     def __getattr__(self, command):
-        if command not in ["start", "restart", "stop", "status"]:
+        if command not in self._commands:
             return super(Service, self).__getattr__(command)
+        elif command == "is_installed":
+            def is_installed(bg=False):
+                try:
+                    sh.grep(
+                        sh.systemctl(
+                            "--no-page",
+                            "list-unit-files",
+                            _bg=bg,
+                            _piped=True),
+                        self.service_name)
+                    return True
+                except:
+                    return False
+            return is_installed
+        elif command in ["daemon_reload"]:
+            args = []
+        elif command in ["start", "restart", "stop", "status"]:
+            args=[
+                "--no-page",
+                command,
+                "{}.service".format(self.service_name)]
 
         def do_command(bg=False):
             try:
-                output = sh.systemctl(
-                    "--no-page", command,
-                    "{}.service".format(self.service_name),
+                output = sh.systemctl(args,
                     _bg=bg, _no_out=True)
                 self._logger.info(
                     "Service '%s' %s" % (self.service_name, command))
@@ -100,7 +120,17 @@ subnet %(subnetIP)s netmask %(netmask)s {
 
 
 class DHCPD(Model):
-    DHCPD_CONFIG = "/etc/dhcp/dhcpd.conf"
+    DHCPD_SERVICE_PATH = "/etc/systemd/system/isc-dhcp-server-{}.service"
+    DHCPD_SERVICE_TMPL = """[Unit]
+Description = DHCP server
+
+[Service]
+ExecStart = /usr/sbin/dhcpd -q -d --no-pid -cf /etc/dhcp/dhcpd-{}.conf {}
+
+[Install]
+WantedBy = multi-user.target
+"""
+    DHCPD_CONFIG = "/etc/dhcp/dhcpd-{}.conf"
     DHCPD_TMPL = """# MOXA configuration file for ISC dhcpd for Debian
 default-lease-time 600;
 max-lease-time 7200;
@@ -123,28 +153,39 @@ log-facility local7;
         super(DHCPD, self).__init__(*args, **kwargs)
 
         self.ifaces = []
+        self.services = {}
 
-    def update_service(self, restart=True):
-        """Update dhcpd.config and restart service if restart set to True"""
-        subnets = []
-        for subnet in self.getAll():
-            if not self._is_enable(subnet):
-                continue
-            subnets.append(subnet.to_config())
-        dhcpd_config = self.DHCPD_TMPL + "\n\n".join(subnets)
+        for subnet in self._getAll():
+            self.services[subnet["name"]] = \
+                Service("isc-dhcp-server-{}".format(subnet["name"]))
+            if self.services[subnet["name"]].is_installed() is False:
+                self._install_service(subnet["name"])
 
-        with open(self.DHCPD_CONFIG, "w") as f:
+        self.update_services()
+
+    def _install_service(self, name):
+         with open(self.DHCPD_SERVICE_PATH.format(name), "w") as f:
+             dhcpd_service = self.DHCPD_SERVICE_TMPL.format(name, name)
+             f.write(dhcpd_service)
+             _logger.debug("add dhcpd service for {}".format(name))
+             self.services[name].daemon_reload()
+
+    def update_service(self, subnet, restart=True):
+        if not self._is_enable(subnet):
+            self.services[subnet["name"]].stop()
+            return
+
+        # generate config by interface(s)
+        with open(self.DHCPD_CONFIG.format(subnet["name"]), "w") as f:
+            dhcpd_config = self.DHCPD_TMPL + "\n\n" + subnet.to_config()
             f.write(dhcpd_config)
             _logger.debug("update dhcpd config: %s" % (self.DHCPD_CONFIG))
+        self.services[subnet["name"]].restart(bg=True)
 
-        if len(subnets) == 0:
-            self.service.stop()
-            return 0
-
-        if restart is False:
-            return 0
-
-        self.service.restart(bg=True)
+    def update_services(self, restart=True):
+        """Update dhcpd.config and restart service if restart set to True"""
+        for subnet in self._getAll():
+            self.update_service(subnet, restart)
 
     def _is_available(self, iface):
         if iface["wan"] is False and \
@@ -161,6 +202,23 @@ log-facility local7;
             return True
         else:
             return False
+
+    def get(self, id):
+        subnet = super(DHCPD, self).get(id)
+        subnet["status"] = True if self.services[subnet["name"]].status() == 0 \
+            else False
+        return subnet
+
+    def _getAll(self):
+        return super(DHCPD, self).getAll()
+
+    def getAll(self):
+        subnets = super(DHCPD, self).getAll()
+        for subnet in subnets:
+            subnet["status"] = True \
+                if self.services[subnet["name"]].status() == 0 \
+                else False
+        return subnets
 
     def add(self, data):
         raise RuntimeError("Not support Add method")
@@ -183,7 +241,7 @@ log-facility local7;
         # use previous status
         newObj["available"] = subnet["available"]
         newSubnet = super(DHCPD, self).update(id=id, newObj=newObj)
-        self.update_service()
+        self.update_service(newSubnet)
 
         return newSubnet
 
@@ -221,13 +279,13 @@ log-facility local7;
             self.ifaces.append(iface)
 
         # update config
-        for item in self.getAll():
-            if item["name"] == iface["name"]:
-                enable = self._is_enable(item)
-                item["available"] = self._is_available(iface)
-                super(DHCPD, self).update(id=item["id"], newObj=item)
-                self.update_service()
+        for subnet in self._getAll():
+            if subnet["name"] == iface["name"]:
+                enable = self._is_enable(subnet)
+                subnet["available"] = self._is_available(iface)
+                super(DHCPD, self).update(id=subnet["id"], newObj=subnet)
+                self.update_service(subnet)
                 _logger.info(
-                    "DHCP server is restarted. Due to {} setting had"
+                    "DHCP server for {} is restarted for setting had"
                     "been changed".format(iface["name"]))
                 break
