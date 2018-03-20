@@ -1,5 +1,12 @@
 sanji-bundle-dhcpd (3.2.1) xenial; urgency=low
 
+  * feat: upgrade isc-dhcp-server with new security patch version.
+  * fix: add isc-dhcp-client deps to avoid remove by upgrade.
+
+ -- Justin <justincp.tung@moxa.com>  Tue, 20 Mar 2018 16:51:57 +0800
+
+sanji-bundle-dhcpd (3.2.1) xenial; urgency=low
+
   * fix: get `actualIface` if exist.
 
  -- Aeluin Chen <aeluin.chen@moxa.com>  Sat, 20 Jan 2018 14:55:16 +0800
