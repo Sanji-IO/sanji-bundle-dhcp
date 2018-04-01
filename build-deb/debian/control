@@ -14,7 +14,6 @@ Package: sanji-bundle-dhcpd
 Section: libs
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, python2.7, python-pip, python-dev,
-        isc-dhcp-server (<= 4.3.1-6+deb8u3),
-        isc-dhcp-client (<= 4.3.1-6+deb8u3)
+        isc-dhcp-server (<= 4.3.1-6+deb8u3)
 Description: Provide system status
 
