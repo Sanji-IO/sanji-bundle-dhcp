@@ -1,3 +1,16 @@
+sanji-bundle-dhcpd (3.2.3) unstable; urgency=low
+
+  * fix: remove isc-dhcp-client deps which changed adding to sanji-bundle-ethernet.
+
+ -- JustinCP Tung <justincp.tung@moxa.com>  Sun, 01 Apr 2018 19:57:11 +0800
+
+sanji-bundle-dhcpd (3.2.2) unstable; urgency=low
+
+  * feat: upgrade isc-dhcp-server with new security patch version.
+  * fix: add isc-dhcp-client deps to avoid remove by upgrade.
+
+ -- Justin <justincp.tung@moxa.com>  Tue, 21 Mar 2018 08:17:57 +0800
+
 sanji-bundle-dhcpd (3.2.1) xenial; urgency=low
 
   * fix: get `actualIface` if exist.
