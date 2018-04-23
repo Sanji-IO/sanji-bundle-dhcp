@@ -1,6 +1,6 @@
 sanji-bundle-dhcpd (3.2.4) unstable; urgency=low
 
-  * fix: add restart on failure.
+  * fix: add Restart=always in dhcpd.service.
 
  -- JustinCP Tung <justincp.tung@moxa.com>  Sun, 22 Apr 2018 09:02:32 +0800
 
