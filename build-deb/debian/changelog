@@ -1,3 +1,9 @@
+sanji-bundle-dhcpd (3.2.4) unstable; urgency=low
+
+  * fix: add restart on failure.
+
+ -- JustinCP Tung <justincp.tung@moxa.com>  Sun, 22 Apr 2018 09:02:32 +0800
+
 sanji-bundle-dhcpd (3.2.3) unstable; urgency=low
 
   * fix: remove isc-dhcp-client deps which changed adding to sanji-bundle-ethernet.
