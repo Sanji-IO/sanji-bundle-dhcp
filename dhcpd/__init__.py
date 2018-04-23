@@ -126,6 +126,7 @@ Description = DHCP server
 
 [Service]
 ExecStart = /usr/sbin/dhcpd -q -d --no-pid -cf /etc/dhcp/dhcpd-{}.conf {}
+Restart = always
 
 [Install]
 WantedBy = multi-user.target
